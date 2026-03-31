@@ -1,6 +1,6 @@
 {
     "name": "neuron-core/ai-form",
-    "description": "AI powered data collection.",
+    "description": "Conversational Data Collection.",
     "minimum-stability": "stable",
     "authors": [
         {
