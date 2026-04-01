@@ -114,6 +114,10 @@ print_r($state->getMissingFields());     // ['phone', 'company']
 
 ### Web Application Example (Controller)
 
+In a web application, you need to use a persistent storage for the chat history.
+You can use one of the Neuron AI [chat history components](https://docs.neuron-ai.dev/agent/chat-history-and-memory)
+to store messages in a database or file system.
+
 ```php
 use App\Forms\RegistrationForm;
 use NeuronAI\Chat\History\FileChatHistory;
