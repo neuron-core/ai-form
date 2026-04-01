@@ -4,9 +4,7 @@ AIForm is a component for collecting structured data through multi-turn natural 
 
 The form maintains conversation history, tracks collected fields, missing fields, and validation errors across multiple turns.
 
-> [!IMPORTANT]
-> Get early access to new features, exclusive tutorials, and expert tips for building AI agents in PHP. Join a community of PHP developers pioneering the future of AI development.
-> [Subscribe to the newsletter](https://neuron-ai.dev)
+Read the full article here: **https://inspector.dev/collecting-data-through-conversation-introducing-aiform-for-neuronai/**
 
 > Before moving on, support the Neuron AI community giving a GitHub star ⭐️. Thank you!
 
