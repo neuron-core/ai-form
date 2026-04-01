@@ -32,6 +32,7 @@ use function array_values;
 use function call_user_func;
 use function str_contains;
 use function strtolower;
+use function class_exists;
 
 /**
  * @method FormState resolveState()
@@ -60,11 +61,23 @@ class AIForm extends Workflow
         return $this;
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function getFormDataClass(): string
     {
         if ($this->formDataClass === null) {
             throw new RuntimeException('Form data class not configured. Call setFormDataClass() first.');
         }
+
+        if (!class_exists($this->formDataClass)) {
+            throw new RuntimeException("Form data class '{$this->formDataClass}' does not exist.");
+        }
+
+        if ($this->schema === []) {
+            $this->schema = JsonSchema::make()->generate($this->formDataClass);
+        }
+
         return $this->formDataClass;
     }
 

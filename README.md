@@ -2,34 +2,20 @@
 
 AIForm is a component for collecting structured data through multi-turn natural language conversations. It uses an AI agent to progressively gather information defined by a structured output class, validating each piece of data along the way.
 
-## How It Works
-
-AIForm operates as a state machine with the following states:
-
-- **INCOMPLETE** - Still collecting data
-- **WAIT_CONFIRM** - All data collected, awaiting user confirmation
-- **COMPLETE** - Form submitted successfully
-- **CLOSED** - Form cancelled by user
-
 The form maintains conversation history, tracks collected fields, missing fields, and validation errors across multiple turns.
 
-## Creating a Custom Form
+## Creating a Data Class
 
-Extend the `AIForm` class to create your custom form:
+You can provide the form structure you want to collect defining a data class using PHP attributes in the same way as you would with any other
+[structured output](https://docs.neuron-ai.dev/agent/structured-output) class in Neuron AI.
+
+You can also attach validation rules like `#[NotBlank]` or `#[Email]` to fields, to enforce data requirements.
 
 ```php
-<?php
-
-namespace App\Neuron\Forms;
-
-use NeuronAI\Form\AIForm;
-use NeuronAI\Form\Enums\FormStatus;
-use NeuronAI\Form\FormState;
-use NeuronAI\Providers\Anthropic\Anthropic;use NeuronAI\StructuredOutput\SchemaProperty;
+use NeuronAI\StructuredOutput\SchemaProperty;
 use NeuronAI\StructuredOutput\Validation\Rules\Email;
 use NeuronAI\StructuredOutput\Validation\Rules\NotBlank;
 
-// 1. Define your data structure with validation attributes
 class RegistrationData
 {
     #[SchemaProperty(description: 'User full name', required: true)]
@@ -46,8 +32,22 @@ class RegistrationData
     #[SchemaProperty(description: 'Company name')]
     public ?string $company = null;
 }
+```
 
-// 2. Create your form class extending AIForm
+## Creating a Custom Form
+
+Extend the `AIForm` class to create your custom form:
+
+```php
+<?php
+
+namespace App\Neuron\Forms;
+
+use NeuronAI\Form\AIForm;
+use NeuronAI\Form\Enums\FormStatus;
+use NeuronAI\Form\FormState;
+use NeuronAI\Providers\Anthropic\Anthropic;
+
 class RegistrationForm extends AIForm
 {
     protected string $formDataClass = RegistrationData::class;
@@ -74,7 +74,7 @@ class RegistrationForm extends AIForm
 }
 ```
 
-## Using Your Form in Application Code
+## Using Form in Application Code
 
 ### Basic Usage
 
@@ -88,7 +88,6 @@ $form = new RegistrationForm();
 
 // Or use the make() static constructor
 $form = RegistrationForm::make()
-    ->setFormDataClass(RegistrationData::class)
     ->requireConfirmation();
 
 // Process user message - Turn 1
@@ -121,7 +120,7 @@ use NeuronAI\Workflow\Persistence\FilePersistence;
 
 class RegistrationController
 {
-    public function handle(Request $request)
+    public function __invoke(Request $request): Response
     {
         $sessionId = $request->session()->getId();
 
@@ -129,7 +128,7 @@ class RegistrationController
         $form = RegistrationForm::make()
             ->setChatHistory(new FileChatHistory("/tmp/chats/{$sessionId}"));
 
-        // Process user message
+        // Send the next user message
         $handler = $form->process(
             new UserMessage($request->input('message'))
         );
@@ -219,60 +218,28 @@ class SmartForm extends AIForm
 }
 ```
 
-## FormState Methods
+## Monitoring
 
-The `FormState` class provides these methods:
+Since this component is build on top of Neuron AI Workflow, it natively supports monitoring and debugging using the
+built-in [Inspector](https://inspector.dev) integration.
 
-| Method | Return Type | Description |
-|--------|-------------|-------------|
-| `getStatus()` | `FormStatus` | Current form status |
-| `getCollectedData()` | `?object` | Collected data object |
-| `getSubmittedData()` | `?object` | Data after submission |
-| `getMissingFields()` | `string[]` | List of missing field names |
-| `getValidationErrors()` | `array<string, string[]>` | Errors by field |
-| `getCompletionPercentage()` | `int` | 0-100 completion percentage |
-| `isComplete()` | `bool` | All required fields collected |
-| `getChatHistory()` | `ChatHistoryInterface` | Conversation history |
+After you sign up, make sure to set the `INSPECTOR_INGESTION_KEY` variable in the application environment file to start monitoring:
 
-## FormStatus Enum
-
-```php
-enum FormStatus: string
-{
-    case INCOMPLETE = 'incomplete';      // Still collecting
-    case WAIT_CONFIRM = 'wait_confirm';  // Awaiting confirmation
-    case COMPLETE = 'complete';          // Submitted successfully
-    case CLOSED = 'closed';              // Cancelled by user
-}
+```dotenv
+INSPECTOR_INGESTION_KEY=fwe45gtxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## Validation
+After configuring the environment variable, you will see the agent execution timeline in your Inspector dashboard.
 
-Use PHP attributes from `NeuronAI\StructuredOutput\Validation\Rules`:
+[![](./assets/inspector.png)](https://inspector.dev)
 
-- `#[NotBlank]` - Field must not be empty
-- `#[Email]` - Must be valid email
-- `#[Url]` - Must be valid URL
-- `#[IPAddress]` - Must be valid IP
-- `#[Length(min: 5, max: 100)]` - String length constraints
-- `#[Count(min: 1, max: 10)]` - Array count constraints
-- `#[GreaterThan(value: 0)]` - Numeric comparison
-- `#[Enum]` - Must be valid enum value
+Learn more about Monitoring in the [documentation](https://docs.neuron-ai.dev/agent/observability).
 
-```php
-class ContactData
-{
-    #[SchemaProperty(description: 'Full name', required: true)]
-    #[NotBlank]
-    #[Length(min: 2, max: 100)]
-    public string $name;
+## Behind the scenes
 
-    #[SchemaProperty(description: 'Email', required: true)]
-    #[Email]
-    public string $email;
+This package is built on top of the Neuron AI Workflow component, just like the Agent class, but
+designed toward a specific use case: collecting structured data from the user conversation.
 
-    #[SchemaProperty(description: 'Age')]
-    #[GreaterThan(value: 0)]
-    public ?int $age = null;
-}
-```
+- Neuron AI Workflow: https://docs.neuron-ai.dev/workflow/getting-started
+- Neuron AI Agent: https://docs.neuron-ai.dev/agent/agent
+- Neuron AI Structured Output: https://docs.neuron-ai.dev/agent/structured-output
