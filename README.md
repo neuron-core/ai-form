@@ -84,28 +84,24 @@ use NeuronAI\Chat\Messages\UserMessage;
 use NeuronAI\Providers\OpenAI\OpenAI;
 
 // Create form instance with AI provider
-$form = new RegistrationForm();
+$form = RegistrationForm::make();
 
-// Or use the make() static constructor
-$form = RegistrationForm::make()
-    ->requireConfirmation();
-
-// Process user message - Turn 1
-$handler = $form->process(new UserMessage("Hi, I'd like to register"));
+// Turn 1
+$state = $form->process(new UserMessage("Hi, I'd like to register"));
 $state = $handler->run();
 
 echo $state->getStatus()->value;        // 'incomplete'
 echo $handler->getLastResponse();        // AI asks for name
 
-// Continue conversation - Turn 2
+// Turn 2
 $handler = $form->process(new UserMessage("My name is John Doe"));
 $state = $handler->run();
 
-// Continue - Turn 3
+// Turn 3
 $handler = $form->process(new UserMessage("john@example.com"));
 $state = $handler->run();
 
-// Check form progress
+// Check progress
 echo $state->getCompletionPercentage();  // e.g., 75
 print_r($state->getMissingFields());     // ['phone', 'company']
 ```
@@ -146,30 +142,82 @@ class RegistrationController
 }
 ```
 
-### Handling Confirmation
+## Requiring Confirmation
 
-When `requireConfirmation` is true, the form enters `WAIT_CONFIRM` status before submission:
+When you need users to review and confirm their data before submission, enable confirmation mode:
 
 ```php
-// Form collects all data and enters WAIT_CONFIRM status
-$handler = $form->process(new UserMessage("That's all the info"));
-$state = $handler->run();
+class RegistrationForm extends AIForm
+{
+    protected string $formDataClass = RegistrationData::class;
 
-if ($state->getStatus()->isWaitingConfirmation()) {
-    // Show collected data to user for review
-    $data = $state->getCollectedData();
-    echo "Please confirm your details:";
-    echo "Name: {$data->name}";
-    echo "Email: {$data->email}";
-    // ...
+    protected function provider(): AIProviderInterface
+    {
+        return new Anthropic('key', 'model');
+    }
 }
 
-// User confirms - form submits and enters COMPLETE status
-$handler = $form->process(new UserMessage("Yes, that's correct"));
+// Enable confirmation in your application code
+$form = RegistrationForm::make()->requireConfirmation(true);
+```
+
+### How It Works
+
+When confirmation is enabled and all required fields are collected, the form throws a `FormInterruptRequest` instead of submitting immediately.
+This interrupts the workflow and gives you control over the confirmation flow:
+
+```php
+use NeuronAI\Form\Interrupt\FormInterruptRequest;
+
+$handler = $form->process(new UserMessage("john@example.com"));
+$state = $handler->run();
+
+// Check if the form is waiting for confirmation
+if ($handler->getInterrupt() instanceof FormInterruptRequest) {
+    $interrupt = $handler->getInterrupt();
+
+    // The interrupt contains the collected data for review
+    $data = $interrupt->getData();
+
+    // The AI-generated confirmation message
+    echo $handler->getLastResponse();
+    // "I've collected the following information:
+    //  Name: John Doe
+    //  Email: john@example.com
+    //  Is this correct?"
+
+    // Store the interrupt (e.g., in session) to resume later
+    $_SESSION['form_interrupt'] = serialize($interrupt);
+}
+```
+
+### Resuming After Confirmation
+
+To resume the form after the user responds to the confirmation prompt, pass the interrupt back to `process()`:
+
+```php
+// Retrieve the stored interrupt
+$interrupt = unserialize($_SESSION['form_interrupt']);
+
+// User confirms the data
+$handler = $form->process(new UserMessage("Yes, that's correct"), $interrupt);
 $state = $handler->run();
 
 echo $state->getStatus()->value;  // 'complete'
+
+// If the user wants to make changes
+$handler = $form->process(new UserMessage("No, I need to change my email"), $interrupt);
+$state = $handler->run();
+
+echo $state->getStatus()->value;  // 'incomplete' - back to collecting data
 ```
+
+### Confirmation Phrases
+
+The form recognizes these confirmation responses:
+
+- **Confirm**: "yes", "confirm", "correct", "right", "ok", "okay", "sure", "yep", "yeah"
+- **Reject**: "no", "cancel", "wrong", "incorrect", "change", "edit", "nope"
 
 ### Handling Cancellation
 

@@ -6,6 +6,7 @@ namespace NeuronAI\Form\Tests;
 
 use NeuronAI\Chat\Messages\AssistantMessage;
 use NeuronAI\Chat\Messages\UserMessage;
+use NeuronAI\Exceptions\WorkflowException;
 use NeuronAI\Form\AIForm;
 use NeuronAI\Form\Enums\FormStatus;
 use NeuronAI\Form\Tests\Stubs\RegistrationData;
@@ -15,6 +16,12 @@ use PHPUnit\Framework\TestCase;
 
 class RegistrationFormTest extends TestCase
 {
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_completes_with_all_required_fields(): void
     {
         $provider = new FakeAIProvider(
@@ -36,6 +43,11 @@ class RegistrationFormTest extends TestCase
         $this->assertEmpty($state->getMissingFields());
     }
 
+    /**
+     * @throws \ReflectionException
+     * @throws \Throwable
+     * @throws WorkflowException
+     */
     public function test_form_awaits_confirmation_when_required(): void
     {
         $provider = new FakeAIProvider(
@@ -55,6 +67,12 @@ class RegistrationFormTest extends TestCase
         $handler->run();
     }
 
+    /**
+     * @throws \Throwable
+     * @throws WorkflowInterrupt
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_validates_email_format(): void
     {
         $provider = new FakeAIProvider(
@@ -74,6 +92,12 @@ class RegistrationFormTest extends TestCase
         $this->assertNotEmpty($state->getValidationErrors());
     }
 
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_accepts_optional_fields(): void
     {
         $provider = new FakeAIProvider(
@@ -96,6 +120,12 @@ class RegistrationFormTest extends TestCase
         $this->assertSame('Acme Corp', $state->getCollectedData()->company);
     }
 
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_can_be_closed_at_any_time(): void
     {
         $provider = new FakeAIProvider();
@@ -112,6 +142,12 @@ class RegistrationFormTest extends TestCase
         $provider->assertNothingSent();
     }
 
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_executes_submit_callback(): void
     {
         $submittedData = null;
@@ -137,6 +173,12 @@ class RegistrationFormTest extends TestCase
         $this->assertSame('eve@test.com', $submittedData->email);
     }
 
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_handles_custom_exit_phrases(): void
     {
         $provider = new FakeAIProvider();
@@ -154,6 +196,12 @@ class RegistrationFormTest extends TestCase
         $provider->assertNothingSent();
     }
 
+    /**
+     * @throws WorkflowInterrupt
+     * @throws \Throwable
+     * @throws \ReflectionException
+     * @throws WorkflowException
+     */
     public function test_form_status_transitions_from_incomplete_to_complete(): void
     {
         $provider = new FakeAIProvider(
