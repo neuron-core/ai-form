@@ -23,7 +23,8 @@ class AIFormTest extends TestCase
             new AssistantMessage('Thank you! Your form has been submitted successfully.')
         );
 
-        $form = new AIForm(User::class);
+        $form = AIForm::make();
+        $form->setFormDataClass(User::class);
         $form->setAiProvider($provider);
 
         $handler = $form->process(new UserMessage('My name is Alice'));
@@ -41,7 +42,8 @@ class AIFormTest extends TestCase
     {
         $provider = new FakeAIProvider();
 
-        $form = new AIForm(User::class);
+        $form = AIForm::make();
+        $form->setFormDataClass(User::class);
         $form->setAiProvider($provider);
 
         $handler = $form->process(new UserMessage('cancel'));
@@ -62,7 +64,8 @@ class AIFormTest extends TestCase
             new AssistantMessage('What is your name?')
         );
 
-        $form = new AIForm(User::class);
+        $form = AIForm::make();
+        $form->setFormDataClass(User::class);
         $form->setAiProvider($provider);
 
         $handler = $form->process(new UserMessage('Hello'));
@@ -71,5 +74,31 @@ class AIFormTest extends TestCase
         $this->assertFalse($form->isComplete());
         $this->assertSame(FormStatus::INCOMPLETE, $state->getStatus());
         $this->assertContains('name', $state->getMissingFields());
+    }
+
+    public function test_form_executes_submit_callback(): void
+    {
+        $submittedData = null;
+
+        $provider = new FakeAIProvider(
+            new AssistantMessage('{"name": "Bob"}'),
+            new AssistantMessage('Form submitted successfully!')
+        );
+
+        $form = AIForm::make();
+        $form->setFormDataClass(User::class);
+        $form->setAiProvider($provider);
+        $form->onSubmit(function (object $data) use (&$submittedData): void {
+            $submittedData = $data;
+        });
+
+        $handler = $form->process(new UserMessage('My name is Bob'));
+        $state = $handler->run();
+
+        $this->assertTrue($form->isComplete());
+        $this->assertSame(FormStatus::COMPLETE, $state->getStatus());
+        $this->assertNotNull($submittedData);
+        $this->assertSame('Bob', $submittedData->name);
+        $this->assertSame($submittedData, $state->getSubmittedData());
     }
 }

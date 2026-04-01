@@ -12,13 +12,13 @@ use NeuronAI\Chat\Messages\UserMessage;
 use NeuronAI\Form\Events\FormStartEvent;
 use NeuronAI\Form\Events\FormUpdateEvent;
 use NeuronAI\Form\FormState;
+use NeuronAI\Observability\Events\Extracted;
+use NeuronAI\Observability\Events\Extracting;
 use NeuronAI\Observability\Events\InferenceStart;
 use NeuronAI\Observability\Events\InferenceStop;
 use NeuronAI\Providers\AIProviderInterface;
 use NeuronAI\StructuredOutput\JsonExtractor;
-use NeuronAI\StructuredOutput\JsonSchema;
 use NeuronAI\Workflow\Node;
-use ReflectionException;
 
 use function array_filter;
 use function array_merge;
@@ -42,16 +42,10 @@ class ExtractionNode extends Node
 {
     use ChatHistoryHelper;
 
-    protected array $schema;
-
-    /**
-     * @throws ReflectionException
-     */
     public function __construct(
         protected AIProviderInterface $provider,
-        string $formDataClass
+        protected array $schema
     ) {
-        $this->schema = JsonSchema::make()->generate($formDataClass);
     }
 
     /**
@@ -76,10 +70,12 @@ class ExtractionNode extends Node
             ->systemPrompt($this->getSystemPrompt())
             ->chat($extractionMessage);
 
-        $this->emit('inference-end', new InferenceStop($extractionMessage, $response));
+        $this->emit('inference-stop', new InferenceStop($extractionMessage, $response));
 
         // Extract JSON from response
+        $this->emit('structured-extracting', new Extracting($response));
         $json = (new JsonExtractor())->getJson($response->getContent());
+        $this->emit('structured-extracted', new Extracted($response, $this->schema, $json));
 
         $extractedData = [];
         if ($json !== null && $json !== '') {

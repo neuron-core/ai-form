@@ -139,13 +139,13 @@ class ResponseNode extends Node
 
         $requestMessage = new UserMessage($prompt);
 
-        $this->emit('form-response-start', new InferenceStart($requestMessage));
+        $this->emit('inference-start', new InferenceStart($requestMessage));
 
         $response = $this->provider
             ->systemPrompt($this->getSystemPrompt())
             ->chat($requestMessage);
 
-        $this->emit('form-response-stop', new InferenceStop($requestMessage, $response));
+        $this->emit('inference-stop', new InferenceStop($requestMessage, $response));
 
         // Add response to chat history
         $this->addToChatHistory($state, $response);
@@ -176,7 +176,9 @@ class ResponseNode extends Node
             $prompt .= "\n";
         }
 
-        return $prompt . ("Based on the conversation context and the missing fields above, " . "generate a friendly, conversational message asking the user for the next piece of information. " . "Ask for one or two fields at a time. If there are validation errors, explain them clearly.");
+        return $prompt . "\nBased on the conversation context and the missing fields above, " .
+                "generate a friendly, conversational message asking the user for the next piece of information. " .
+                "Ask for one or two fields at a time. If there are validation errors, explain them clearly.";
     }
 
     /**
@@ -194,9 +196,13 @@ class ResponseNode extends Node
 
         $requestMessage = new UserMessage($prompt);
 
-        return $this->provider
-            ->systemPrompt("You are a friendly form assistant.")
+        $this->emit('inference-start', new InferenceStart($requestMessage));
+        $response = $this->provider
+            ->systemPrompt($this->getSystemPrompt())
             ->chat($requestMessage);
+        $this->emit('inference-stop', new InferenceStop($requestMessage, $response));
+
+        return $response;
     }
 
     /**
@@ -209,9 +215,13 @@ class ResponseNode extends Node
 
         $requestMessage = new UserMessage($prompt);
 
-        return $this->provider
-            ->systemPrompt("You are a friendly form assistant.")
+        $this->emit('inference-start', new InferenceStart($requestMessage));
+        $response = $this->provider
+            ->systemPrompt($this->getSystemPrompt())
             ->chat($requestMessage);
+        $this->emit('inference-stop', new InferenceStop($requestMessage, $response));
+
+        return $response;
     }
 
     /**
@@ -234,6 +244,6 @@ class ResponseNode extends Node
             return [];
         }
 
-        return array_map(fn (mixed $value): array => is_object($value) ? $this->objectToArray($value) : $value, get_object_vars($object));
+        return array_map(fn (mixed $value): mixed => is_object($value) ? $this->objectToArray($value) : $value, get_object_vars($object));
     }
 }

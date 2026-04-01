@@ -88,7 +88,8 @@ $form = new RegistrationForm();
 
 // Or use the make() static constructor
 $form = RegistrationForm::make()
-    ->setAiProvider(new OpenAI('your-api-key'));
+    ->setFormDataClass(RegistrationData::class)
+    ->requireConfirmation();
 
 // Process user message - Turn 1
 $handler = $form->process(new UserMessage("Hi, I'd like to register"));

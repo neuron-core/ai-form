@@ -7,6 +7,10 @@ namespace NeuronAI\Form\Nodes;
 use NeuronAI\Form\Events\FormUpdateEvent;
 use NeuronAI\Form\Events\FormValidatedEvent;
 use NeuronAI\Form\FormState;
+use NeuronAI\Observability\Events\Deserialized;
+use NeuronAI\Observability\Events\Deserializing;
+use NeuronAI\Observability\Events\Validated;
+use NeuronAI\Observability\Events\Validating;
 use NeuronAI\StructuredOutput\Deserializer\Deserializer;
 use NeuronAI\StructuredOutput\Validation\Validator;
 use NeuronAI\Workflow\Node;
@@ -50,11 +54,15 @@ class ValidationNode extends Node
 
         // Try to deserialize the data into the form class
         try {
-            $jsonData = json_encode($extractedData);
-            $object = Deserializer::make()->fromJson($jsonData, $this->formDataClass);
+            $this->emit('structured-deserializing', new Deserializing($this->formDataClass));
+            $json = json_encode($extractedData);
+            $object = Deserializer::make()->fromJson($json, $this->formDataClass);
+            $this->emit('structured-deserialized', new Deserialized($this->formDataClass));
 
             // Validate the object using PHP attributes
+            $this->emit('structured-validating', new Validating($this->formDataClass, $json));
             $violations = Validator::validate($object);
+            $this->emit('structured-validated', new Validated($this->formDataClass, $json));
 
             if ($violations === []) {
                 // Validation passed - update collected data and fields

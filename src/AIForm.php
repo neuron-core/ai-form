@@ -8,7 +8,6 @@ use NeuronAI\Chat\History\ChatHistoryInterface;
 use NeuronAI\Chat\History\InMemoryChatHistory;
 use NeuronAI\Chat\Messages\Message;
 use NeuronAI\Chat\Messages\UserMessage;
-use NeuronAI\Exceptions\WorkflowException;
 use NeuronAI\Form\Enums\FormStatus;
 use NeuronAI\Form\Events\FormStartEvent;
 use NeuronAI\Form\Interrupt\FormInterruptRequest;
@@ -16,10 +15,13 @@ use NeuronAI\Form\Nodes\ExtractionNode;
 use NeuronAI\Form\Nodes\ResponseNode;
 use NeuronAI\Form\Nodes\ValidationNode;
 use NeuronAI\Providers\AIProviderInterface;
+use NeuronAI\StaticConstructor;
 use NeuronAI\StructuredOutput\JsonSchema;
 use NeuronAI\Workflow\Interrupt\InterruptRequest;
+use NeuronAI\Workflow\Persistence\PersistenceInterface;
 use NeuronAI\Workflow\Workflow;
 use Closure;
+use NeuronAI\Workflow\WorkflowState;
 use RuntimeException;
 use ReflectionException;
 
@@ -34,29 +36,19 @@ use function strtolower;
 /**
  * @method FormState resolveState()
  * @method FormState run()
+ * @method static static make(?PersistenceInterface $persistence = null, ?string $resumeToken = null, ?WorkflowState $state = null)
  */
 class AIForm extends Workflow
 {
+    use StaticConstructor;
+    use HandleProvider;
+
     protected AIProviderInterface $provider;
     protected ?string $formDataClass = null;
     protected bool $requireConfirmation = false;
     protected array $exitPhrases = ['cancel', 'quit', 'exit', 'stop', 'never mind', 'forget it'];
     protected ?Closure $submitCallback = null;
     protected array $schema = [];
-
-    /**
-     * @throws ReflectionException
-     * @throws WorkflowException
-     */
-    public function __construct(
-        ?string $formDataClass = null
-    ) {
-        parent::__construct();
-
-        if ($formDataClass !== null) {
-            $this->setFormDataClass($formDataClass);
-        }
-    }
 
     /**
      * @throws ReflectionException
@@ -74,26 +66,6 @@ class AIForm extends Workflow
             throw new RuntimeException('Form data class not configured. Call setFormDataClass() first.');
         }
         return $this->formDataClass;
-    }
-
-    public function setAiProvider(AIProviderInterface $provider): self
-    {
-        $this->provider = $provider;
-
-        return $this;
-    }
-
-    protected function provider(): AIProviderInterface
-    {
-        return $this->provider;
-    }
-
-    /**
-     * Get the current provider instance.
-     */
-    protected function resolveProvider(): AIProviderInterface
-    {
-        return $this->provider ??= $this->provider();
     }
 
     public function setChatHistory(ChatHistoryInterface $chatHistory): self
@@ -151,13 +123,11 @@ class AIForm extends Workflow
     protected function startEvent(): FormStartEvent
     {
         $lastMessage = $this->resolveState()->getChatHistory()->getLastMessage();
-        return new FormStartEvent($lastMessage !== false ? $lastMessage : new UserMessage(''));
+        return new FormStartEvent($lastMessage !== false ? $lastMessage : new UserMessage('Hi!'));
     }
 
     /**
      * Compose the workflow nodes for form processing.
-     *
-     * @throws ReflectionException
      */
     protected function compose(): void
     {
@@ -169,7 +139,7 @@ class AIForm extends Workflow
         $formDataClass = $this->getFormDataClass();
 
         $this->addNodes([
-            new ExtractionNode($provider, $formDataClass),
+            new ExtractionNode($provider, $this->schema),
             new ValidationNode($formDataClass),
             new ResponseNode($provider, $this->requireConfirmation, $this->resolveCallback()),
         ]);
@@ -177,8 +147,6 @@ class AIForm extends Workflow
 
     /**
      * Process a user message through the form workflow.
-     *
-     * @throws ReflectionException
      */
     public function process(Message $message, ?InterruptRequest $interrupt = null): FormHandler
     {
@@ -223,14 +191,6 @@ class AIForm extends Workflow
     public function getStatus(): FormStatus
     {
         return $this->resolveState()->getStatus();
-    }
-
-    /**
-     * Get the JSON schema for the form data class.
-     */
-    public function getSchema(): array
-    {
-        return $this->schema;
     }
 
     /**
