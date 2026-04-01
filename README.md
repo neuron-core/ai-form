@@ -167,7 +167,7 @@ class RegistrationForm extends AIForm
 $form = RegistrationForm::make()->requireConfirmation(true);
 ```
 
-### How It Works
+### Interruption
 
 When confirmation is enabled and all required fields are collected, the form throws a `FormInterruptRequest` instead of submitting immediately.
 This interrupts the workflow and gives you control over the confirmation flow:
